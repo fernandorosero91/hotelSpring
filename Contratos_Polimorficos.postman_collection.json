@@ -1,0 +1,277 @@
+{
+  "info": {
+    "name": "Contratos Polimórficos, Proyecciones Anidadas y Actualización Parcial Segura",
+    "description": "Colección de pruebas para habitaciones polimórficas (Estándar/Suite), resumen ejecutivo del cliente y PATCH selectivo.\n\nEjecutar en orden con el Collection Runner: la carpeta 'Preparación' captura clienteId, habitacionId y reservaId automáticamente.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "host", "value": "http://localhost:8080" },
+    { "key": "clienteId", "value": "" },
+    { "key": "habitacionId", "value": "" },
+    { "key": "reservaId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Preparación",
+      "description": "Prerrequisito para las pruebas 3 y 4. Ejecutar una vez.",
+      "item": [
+        {
+          "name": "Preparación 1: crear un cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.collectionVariables.set('clienteId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Ana Pérez\",\n  \"email\": \"ana.perez@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{host}}/api/clientes",
+              "host": ["{{host}}"],
+              "path": ["api", "clientes"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Preparación 2: crear una habitación estándar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('habitacionId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numero\": \"E01-101\",\n  \"precioPorNoche\": 120.0,\n  \"capacidadMaxima\": 2,\n  \"camasIndividuales\": 2\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{host}}/api/habitaciones/estandar",
+              "host": ["{{host}}"],
+              "path": ["api", "habitaciones", "estandar"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Preparación 3: crear una reserva para el cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('reservaId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": \"{{clienteId}}\",\n  \"habitacionId\": \"{{habitacionId}}\",\n  \"fechaInicio\": \"2026-10-01T15:00:00\",\n  \"fechaFin\": \"2026-10-05T15:00:00\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{host}}/api/reservas",
+              "host": ["{{host}}"],
+              "path": ["api", "reservas"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Prueba 1 — Creación de Suite Presidencial",
+      "description": "Esperado: 201 Created con el ID generado y los campos propios de la suite.",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Respuesta 201 Created', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "pm.test('Incluye ID generado', function () {",
+              "    pm.expect(body.id).to.exist;",
+              "});",
+              "pm.test('Discriminador tipo = SUITE', function () {",
+              "    pm.expect(body.tipo).to.eql('SUITE');",
+              "});",
+              "pm.test('Conserva atributos específicos de la suite', function () {",
+              "    pm.expect(body.jacuzziPrivado).to.eql(true);",
+              "    pm.expect(body.incluyeMayordomo).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"numero\": \"P05-501\",\n  \"precioPorNoche\": 350.0,\n  \"capacidadMaxima\": 2,\n  \"jacuzziPrivado\": true,\n  \"incluyeMayordomo\": true\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{host}}/api/habitaciones/suites",
+          "host": ["{{host}}"],
+          "path": ["api", "habitaciones", "suites"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Prueba 2 — Consulta Polimórfica",
+      "description": "Esperado: un JSON array donde conviven estándar y suite, cada elemento con su campo 'tipo' y sus atributos propios, sin errores de casteo.",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Respuesta 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Es un array polimórfico', function () {",
+              "    pm.expect(body).to.be.an('array');",
+              "});",
+              "pm.test('Cada elemento trae discriminador tipo', function () {",
+              "    body.forEach(function (h) {",
+              "        pm.expect(['ESTANDAR', 'SUITE'], 'tipo inválido en habitación ' + h.numero).to.include(h.tipo);",
+              "    });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{host}}/api/habitaciones",
+          "host": ["{{host}}"],
+          "path": ["api", "habitaciones"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Prueba 3 — Resumen Ejecutivo del Cliente",
+      "description": "Esperado: datos del cliente + total de reservas + monto total gastado + lista embebida limpia (sin $ref cíclicos ni desbordamiento).",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Respuesta 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Calcula totalReservasRealizadas', function () {",
+              "    pm.expect(body.totalReservasRealizadas, 'Se esperaba 1 reserva').to.eql(1);",
+              "});",
+              "pm.test('Calcula montoTotalGastado', function () {",
+              "    pm.expect(body.montoTotalGastado, 'Se esperaba 480.0 (120.0 x 4 noches)').to.eql(480.0);",
+              "});",
+              "pm.test('Lista embebida sin referencia al cliente', function () {",
+              "    body.reservasRecientes.forEach(function (r) {",
+              "        pm.expect(r.numeroHabitacion, 'Falta numeroHabitacion').to.not.be.undefined;",
+              "        pm.expect(r.cliente, 'No debe referenciar al cliente').to.be.undefined;",
+              "    });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{host}}/api/clientes/{{clienteId}}/resumen",
+          "host": ["{{host}}"],
+          "path": ["api", "clientes", "{{clienteId}}", "resumen"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Prueba 4 — Actualización Selectiva (PATCH)",
+      "description": "Esperado: 200 OK; sólo cambia el nombre. El email, activo y penalizaciones permanecen inalterados.",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Respuesta 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test('El nombre fue actualizado', function () {",
+              "    pm.expect(body.nombre).to.eql('Nuevo Nombre Modificado');",
+              "});",
+              "pm.test('El email permaneció inalterado', function () {",
+              "    pm.expect(body.email, 'El email fue sobrescrito').to.eql('ana.perez@example.com');",
+              "});",
+              "pm.test('Estado activo y penalizaciones intactos', function () {",
+              "    pm.expect(body.activo, 'activo cambió').to.eql(true);",
+              "    pm.expect(body.penalizaciones, 'penalizaciones cambió').to.eql(0);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Nuevo Nombre Modificado\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{host}}/api/clientes/{{clienteId}}",
+          "host": ["{{host}}"],
+          "path": ["api", "clientes", "{{clienteId}}"]
+        }
+      },
+      "response": []
+    }
+  ]
+}
